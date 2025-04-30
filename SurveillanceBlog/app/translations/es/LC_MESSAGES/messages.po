@@ -7,7 +7,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: PROJECT VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2025-04-30 18:32+0000\n"
+"POT-Creation-Date: 2025-04-30 20:06+0000\n"
 "PO-Revision-Date: 2025-04-30 18:36+0000\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language: es\n"
@@ -111,11 +111,11 @@ msgstr ""
 msgid "Your post is now live!"
 msgstr ""
 
-#: app/main/routes.py:47 app/templates/base.html:27
+#: app/main/routes.py:47 app/templates/base.html:31
 msgid "Home"
 msgstr ""
 
-#: app/main/routes.py:64 app/templates/base.html:30
+#: app/main/routes.py:64 app/templates/base.html:34
 msgid "Explore"
 msgstr ""
 
@@ -160,18 +160,18 @@ msgid "Translate"
 msgstr ""
 
 #: app/templates/base.html:9
-msgid "Welcome to Microblog"
-msgstr ""
-
-#: app/templates/base.html:36
-msgid "Login"
+msgid "Welcome to SurveillanceBlog"
 msgstr ""
 
 #: app/templates/base.html:40
+msgid "Login"
+msgstr ""
+
+#: app/templates/base.html:44
 msgid "Profile"
 msgstr ""
 
-#: app/templates/base.html:43
+#: app/templates/base.html:47
 msgid "Logout"
 msgstr ""
 
@@ -253,4 +253,7 @@ msgstr ""
 #: app/templates/errors/500.html:5
 msgid "The administrator has been notified. Sorry for the inconvenience!"
 msgstr ""
+
+#~ msgid "Welcome to Microblog"
+#~ msgstr ""
 
