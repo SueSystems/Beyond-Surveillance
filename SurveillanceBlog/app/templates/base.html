@@ -96,6 +96,15 @@
         const data = await response.json();
         document.getElementById(destElem).innerText = data.text;
       }
+
+	 function initialize_popovers() {
+		 // initialization code
+	   const popups = document.getElementsByClassName('user_popup');
+	   for (let i = 0; i < popups.length; i++) {
+             // popover 
+	   }
+	 }
+	 document.addEventListener('DOMContentLoaded', initialize_popovers);
     </script>
   </body>
 </html>
