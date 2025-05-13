@@ -116,7 +116,14 @@
             // send request
 		const response = await fetch('/user/' + ev.target.innerText.trim() + '/popup');
             	const data = await response.text();
-			// popover update 
+			// popover update
+		const popover = bootstrap.Popover.getInstance(ev.target);
+            	if (popover && data) {
+                  ev.target.popupLoaded = true;
+                  popover.setContent({'.popover-body': data});
+                  flask_moment_render_all();
+                }
+             });
 	   }
 	 }
 	 document.addEventListener('DOMContentLoaded', initialize_popovers);
