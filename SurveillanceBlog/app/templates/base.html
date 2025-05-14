@@ -59,7 +59,9 @@
                                 href="{{ url_for('main.messages') }}">
                             {{ _('Messages') }}
 			    {% set unread_message_count = current_user.unread_message_count() %}
-                            <span class="badge text-bg-danger">
+                            <span class="badge text-bg-danger"
+				  style="visibility: {% if unread_message_count %}visible
+                                                   {% else %}hidden{% endif %};">
                                 {{ unread_message_count }}
                             </span>
                         </a>
