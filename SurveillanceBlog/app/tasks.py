@@ -17,3 +17,12 @@ def _set_task_progress(progress):
             task.complete = True
         db.session.commit()
 
+def export_posts(user_id):
+    try:
+        # read user posts from database
+        # send email with data to user
+    except Exception:
+        # handle unexpected errors
+    finally:
+        # handle clean up
+
