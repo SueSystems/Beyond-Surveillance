@@ -1,5 +1,7 @@
 from datetime import datetime, timezone, timedelta
 from hashlib import md5
+import json
+import secrets
 from time import time
 from typing import Optional
 import sqlalchemy as sa
@@ -8,14 +10,13 @@ from flask import current_app, url_for
 from flask_login import UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
 import jwt
-from app import db, login
-from app.search import add_to_index, remove_from_index, query_index
-import json
 import redis
 import rq
-import secrets
+from app import db, login
+from app.search import add_to_index, remove_from_index, query_index
 
-class SearchableMixin(object):
+
+class SearchableMixin:
     @classmethod
     def search(cls, expression, page, per_page):
         ids, total = query_index(cls.__tablename__, expression, page, per_page)
@@ -54,8 +55,10 @@ class SearchableMixin(object):
         for obj in db.session.scalars(sa.select(cls)):
             add_to_index(cls.__tablename__, obj)
 
+
 db.event.listen(db.session, 'before_commit', SearchableMixin.before_commit)
 db.event.listen(db.session, 'after_commit', SearchableMixin.after_commit)
+
 
 class PaginatedAPIMixin(object):
     @staticmethod
@@ -125,8 +128,6 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
         back_populates='user')
     tasks: so.WriteOnlyMapped['Task'] = so.relationship(back_populates='user')
 
-
-
     def __repr__(self):
         return '<User {}>'.format(self.username)
 
@@ -181,28 +182,6 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
         return jwt.encode(
             {'reset_password': self.id, 'exp': time() + expires_in},
             current_app.config['SECRET_KEY'], algorithm='HS256')
-    
-    def get_token(self, expires_in=3600):
-        now = datetime.now(timezone.utc)
-        if self.token and self.token_expiration.replace(
-                tzinfo=timezone.utc) > now + timedelta(seconds=60):
-            return self.token
-        self.token = secrets.token_hex(16)
-        self.token_expiration = now + timedelta(seconds=expires_in)
-        db.session.add(self)
-        return self.token
-
-    def revoke_token(self):
-        self.token_expiration = datetime.now(timezone.utc) - timedelta(
-            seconds=1)
-
-    @staticmethod
-    def check_token(token):
-        user = db.session.scalar(sa.select(User).where(User.token == token))
-        if user is None or user.token_expiration.replace(
-                tzinfo=timezone.utc) < datetime.now(timezone.utc):
-            return None
-        return user
 
     @staticmethod
     def verify_reset_password_token(token):
@@ -227,6 +206,22 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
         db.session.add(n)
         return n
 
+    def launch_task(self, name, description, *args, **kwargs):
+        rq_job = current_app.task_queue.enqueue(f'app.tasks.{name}', self.id,
+                                                *args, **kwargs)
+        task = Task(id=rq_job.get_id(), name=name, description=description,
+                    user=self)
+        db.session.add(task)
+        return task
+
+    def get_tasks_in_progress(self):
+        query = self.tasks.select().where(Task.complete == False)
+        return db.session.scalars(query)
+
+    def get_task_in_progress(self, name):
+        query = self.tasks.select().where(Task.name == name,
+                                          Task.complete == False)
+        return db.session.scalar(query)
 
     def posts_count(self):
         query = sa.select(sa.func.count()).select_from(
@@ -238,7 +233,7 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
             'id': self.id,
             'username': self.username,
             'last_seen': self.last_seen.replace(
-                tzinfo=timezone.utc).isoformat() if self.last_seen else None,
+                tzinfo=timezone.utc).isoformat(),
             'about_me': self.about_me,
             'post_count': self.posts_count(),
             'follower_count': self.followers_count(),
@@ -260,6 +255,28 @@ class User(PaginatedAPIMixin, UserMixin, db.Model):
                 setattr(self, field, data[field])
         if new_user and 'password' in data:
             self.set_password(data['password'])
+
+    def get_token(self, expires_in=3600):
+        now = datetime.now(timezone.utc)
+        if self.token and self.token_expiration.replace(
+                tzinfo=timezone.utc) > now + timedelta(seconds=60):
+            return self.token
+        self.token = secrets.token_hex(16)
+        self.token_expiration = now + timedelta(seconds=expires_in)
+        db.session.add(self)
+        return self.token
+
+    def revoke_token(self):
+        self.token_expiration = datetime.now(timezone.utc) - timedelta(
+            seconds=1)
+
+    @staticmethod
+    def check_token(token):
+        user = db.session.scalar(sa.select(User).where(User.token == token))
+        if user is None or user.token_expiration.replace(
+                tzinfo=timezone.utc) < datetime.now(timezone.utc):
+            return None
+        return user
 
 
 @login.user_loader
@@ -292,6 +309,7 @@ class Message(db.Model):
     body: so.Mapped[str] = so.mapped_column(sa.String(140))
     timestamp: so.Mapped[datetime] = so.mapped_column(
         index=True, default=lambda: datetime.now(timezone.utc))
+
     author: so.Mapped[User] = so.relationship(
         foreign_keys='Message.sender_id',
         back_populates='messages_sent')
@@ -301,6 +319,7 @@ class Message(db.Model):
 
     def __repr__(self):
         return '<Message {}>'.format(self.body)
+
 
 class Notification(db.Model):
     id: so.Mapped[int] = so.mapped_column(primary_key=True)
@@ -314,6 +333,7 @@ class Notification(db.Model):
 
     def get_data(self):
         return json.loads(str(self.payload_json))
+
 
 class Task(db.Model):
     id: so.Mapped[str] = so.mapped_column(sa.String(36), primary_key=True)
@@ -335,19 +355,3 @@ class Task(db.Model):
         job = self.get_rq_job()
         return job.meta.get('progress', 0) if job is not None else 100
 
-    def launch_task(self, name, description, *args, **kwargs):
-        rq_job = current_app.task_queue.enqueue(f'app.tasks.{name}', self.id,
-                                                *args, **kwargs)
-        task = Task(id=rq_job.get_id(), name=name, description=description,
-                    user=self)
-        db.session.add(task)
-        return task
-
-    def get_tasks_in_progress(self):
-        query = self.tasks.select().where(Task.complete == False)
-        return db.session.scalars(query)
-
-    def get_task_in_progress(self, name):
-        query = self.tasks.select().where(Task.name == name,
-                                          Task.complete == False)
-        return db.session.scalar(query)
