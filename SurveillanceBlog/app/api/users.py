@@ -46,7 +46,7 @@ def create_user():
             User.username == data['username'])):
         return bad_request('please use a different username')
     if db.session.scalar(sa.select(User).where(
-            User.email app/api/users.py== data['email'])):
+            User.email == data['email'])):
         return bad_request('please use a different email address')
     user = User()
     user.from_dict(data, new_user=True)
